@@ -5,7 +5,7 @@ import { createAIController } from "../controllers/ai.controller.js";
 const router = Router();
 
 const aiController = createAIController({
-  llmService: container.llmService,
+  orchestrator: container.orchestrator,
 });
 
 router.post("/chat", aiController.chat);

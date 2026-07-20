@@ -1,8 +1,4 @@
-export function createAIController({ llmService }) {
-  if (!llmService) {
-    throw new Error("AI controller requires llmService");
-  }
-
+export function createAIController({ orchestrator }) {
   return {
     async chat(req, res) {
       try {
@@ -15,32 +11,21 @@ export function createAIController({ llmService }) {
           });
         }
 
-        const result = await llmService.chat({
-          messages: [
-            {
-              role: "user",
-              content: message,
-            },
-          ],
-
-          instructions:
-            "You are the AI learning assistant. Explain concepts practically and clearly.",
-        });
+        const result = await orchestrator.handle(message);
 
         return res.status(200).json({
           status: "success",
           data: {
             reply: result.text,
-            metadata: result.metadata,
+            metadata: result.metadata ?? null,
           },
         });
       } catch (error) {
-        console.error("AI chat request failed:", error);
+        console.error("AI request failed:", error);
 
-        return res.status(503).json({
+        return res.status(500).json({
           status: "failed",
-          message:
-            "The AI service is temporarily unavailable. Please try again.",
+          message: "Unable to process request",
         });
       }
     },
