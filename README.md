@@ -1,15 +1,16 @@
-# Gypaid AI Orchestrator
+# AI Orchestrator
 
-Gypaid AI Orchestrator is a Node.js and Express service that routes user messages through a lightweight intent detector and an LLM provider. The current active provider is OpenAI, with placeholder files present for future Claude and Gemini support.
+AI Orchestrator is a Node.js and Express service that routes user messages through an AI orchestration layer. It uses OpenAI for chat responses and OpenAI embeddings for semantic intent detection.
 
 ## Features
 
 - Express API with versioned AI routes
 - Health check endpoint
 - Chat endpoint backed by an orchestrator layer
-- Keyword-based intent routing for transfer, balance, transactions, reports, and general chat
+- Semantic intent routing for transfer, balance, transactions, reports, clarifications, and general chat
 - OpenAI Responses API integration
-- OpenAI embedding provider and cosine similarity utility for semantic routing experiments
+- OpenAI embedding provider for intent classification
+- Cosine similarity matching against configured intent examples
 
 ## Requirements
 
@@ -58,7 +59,9 @@ Production-style start:
 npm start
 ```
 
-The server logs the active port and configured LLM provider when it starts.
+The server logs the active port when it starts.
+
+During startup, the app initializes the semantic intent router by embedding the examples in `src/router/intent-examples.js`. This requires a valid `OPENAI_API_KEY` and network access before the HTTP server can start.
 
 ## API
 
@@ -104,30 +107,41 @@ Example response:
 {
   "status": "success",
   "data": {
-    "reply": "Hello! How can I help?",
+    "reply": "Transfer module coming soon.",
     "metadata": {
-      "provider": "openai",
-      "model": "gpt-5.5",
-      "responseId": "resp_...",
-      "usage": null
+      "intent": "TRANSFER",
+      "confidence": 0.82,
+      "method": "semantic",
+      "matchedPhrase": "Send UGX to Simon",
+      "handledBy": "orchestrator"
     }
   }
 }
 ```
 
-For non-chat financial intents, the orchestrator currently returns placeholder responses such as `Transfer module coming soon.`
+For `GENERAL_CHAT`, the orchestrator forwards the message to the configured OpenAI chat provider and returns provider metadata such as model, response ID, and token usage.
+
+For financial intents, the orchestrator currently returns placeholder responses such as `Transfer module coming soon.`
 
 ## Intent Routing
 
-The current router uses simple keyword matching:
+The active router is `SemanticIntentRouter`. It embeds each incoming message, compares it to the examples in `src/router/intent-examples.js`, and selects the closest intent using cosine similarity.
 
-- `TRANSFER`: messages containing `transfer` or `send money`
-- `BALANCE`: messages containing `balance`
-- `TRANSACTIONS`: messages containing `transaction`
-- `REPORT`: messages containing `report`
-- `GENERAL_CHAT`: all other messages
+Supported intent types:
 
-`src/router/intent-examples.js`, `src/embeddings/OpenAIEmbeddingProvider.js`, and `src/utils/cosine-similarity.js` are available for semantic intent routing work.
+- `TRANSFER`
+- `BALANCE`
+- `TRANSACTIONS`
+- `REPORT`
+- `CLARIFICATION_REQUIRED`
+- `GENERAL_CHAT`
+
+Semantic routing settings are currently configured in `src/bootstrap/container.js`:
+
+- `confidenceThreshold`: `0.55`
+- `ambiguityMargin`: `0.05`
+
+If the top semantic match is below the confidence threshold, the request falls back to `GENERAL_CHAT`. If the top matches are too close across different intents, the orchestrator returns a clarification prompt.
 
 ## Project Structure
 
@@ -140,9 +154,12 @@ src/
   controllers/ai.controller.js   HTTP controller
   routes/ai.routes.js            AI routes
   orchestrator/AIOrchestrator.js Intent-aware orchestration
-  router/intent.router.js        Keyword intent detector
+  router/intent.router.js        Legacy keyword intent detector
+  router/semantic-intent.router.js
+                                 Active semantic intent detector
+  router/intent-examples.js      Example phrases used for semantic matching
   providers/OpenAIProvider.js    Active OpenAI LLM provider
-  embeddings/                    Embedding provider experiments
+  embeddings/                    OpenAI embedding provider
   interfaces/                    Provider interfaces
   tests/                         Manual test scripts
   utils/                         Shared utilities
@@ -156,7 +173,7 @@ The embedding test calls the OpenAI API and requires network access plus `OPENAI
 node src/tests/embedding.test.js
 ```
 
-It prints the embedding vector length and the first few values.
+It compares similar and unrelated phrases, then prints cosine similarity scores.
 
 ## Git Notes
 
