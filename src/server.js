@@ -1,19 +1,32 @@
-import app from "./app.js";
 import { env } from "./config/env.js";
+import { createApp } from "./app.js";
+import { initializeContainer } from "./bootstrap/container.js";
 
-const server = app.listen(env.port, () => {
-  console.log(`AI Orchestrator running on port ${env.port}`);
-  console.log(`Configured LLM provider: ${env.llmProvider}`);
-});
+async function startServer() {
+  try {
+    const container = await initializeContainer();
 
-function shutdown(signal) {
-  console.log(`${signal} received. Shutting down gracefully...`);
+    const app = createApp({
+      orchestrator: container.orchestrator,
+    });
 
-  server.close(() => {
-    console.log("HTTP server closed");
-    process.exit(0);
-  });
+    const server = app.listen(env.port, () => {
+      console.log(
+        `AI Orchestrator running on port ${env.port}`,
+      );
+    });
+
+    process.on("SIGTERM", () => {
+      server.close(() => process.exit(0));
+    });
+
+    process.on("SIGINT", () => {
+      server.close(() => process.exit(0));
+    });
+  } catch (error) {
+    console.error("Application startup failed:", error);
+    process.exit(1);
+  }
 }
 
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
+startServer();

@@ -1,13 +1,14 @@
 import { Router } from "express";
-import { container } from "../bootstrap/container.js";
 import { createAIController } from "../controllers/ai.controller.js";
 
-const router = Router();
+export function createAIRoutes({ orchestrator }) {
+  const router = Router();
 
-const aiController = createAIController({
-  orchestrator: container.orchestrator,
-});
+  const aiController = createAIController({
+    orchestrator,
+  });
 
-router.post("/chat", aiController.chat);
+  router.post("/chat", aiController.chat);
 
-export default router;
+  return router;
+}
